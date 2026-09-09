@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "studymanager-transcribe2"
+version = "0.1.0"
+description = "Independent preparation client and centralized Mac transcription hub"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.optional-dependencies]
+mac = ["mlx-whisper>=0.4,<0.5; sys_platform == 'darwin'"]
+pdf = ["pypdf>=5,<7"]
+
+[project.scripts]
+smt2 = "smt2.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["smt2*"]
