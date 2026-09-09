@@ -11,4 +11,8 @@
 - 두 앱: 파일 선택과 클릭 동작, 실패 안내, 작업 중 창 닫기 방지.
 - NAS: 별도 문서의 연결·권한·중단·복원 시험.
 
-GUI는 디스플레이가 없는 현재 환경에서 실제 창을 띄워 검증하지 않았다. 소스 실행 스크립트의 Windows/macOS 실기 실행도 미검증이다. GitHub Actions는 OS별 자동 테스트 정의이며 실행 결과 확인 전 통과를 주장하지 않는다.
+GUI는 디스플레이가 없는 현재 환경에서 실제 창을 띄워 검증하지 않았다. 소스 실행 스크립트의 Windows/macOS 실기 실행도 미검증이다. GitHub Actions에서 수정 커밋 `4d60fd04c517b0c04be30ae53521e01db228b312`의 Windows·macOS·Linux 작업이 모두 성공했다. 각 작업은 18개 계약 테스트와 CLI 도움말 실행을 검증했다. 이는 실제 MLX 전사·GUI 클릭 검증과 구분한다.
+
+[OS별 CI 결과](https://github.com/jcpark-allthings/StudyManager-Transcribe2/actions/runs/34326389439)
+
+최초 Windows 검사에서는 테스트 코드의 기본 인코딩 읽기로 한글 UTF-8 데이터가 실패했다. 테스트의 파일 읽기에 UTF-8을 명시한 뒤 세 OS 모두 통과했다.
