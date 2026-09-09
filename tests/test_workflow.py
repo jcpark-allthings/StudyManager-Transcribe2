@@ -27,14 +27,14 @@ class WorkflowTests(unittest.TestCase):
         job = self.hub.ingest(self.bundle)
         self.hub.export(self.exchange)
         receipt = self.exchange / 'receipts' / self.device / job / 'status.json'
-        self.assertTrue(json.loads(receipt.read_text())['accepted'])
+        self.assertTrue(json.loads(receipt.read_text(encoding='utf-8'))['accepted'])
         import shutil
         shutil.rmtree(self.bundle)
         self.audio.unlink()
         self.assertEqual(self.hub.run_one(fake), job)
         self.hub.export(self.exchange)
         result = self.exchange / 'results' / self.device / job / '1'
-        self.assertEqual((result / 'raw.txt').read_text(), '강의 시험')
+        self.assertEqual((result / 'raw.txt').read_text(encoding='utf-8'), '강의 시험')
         self.assertTrue((result / 'complete.json').exists())
         self.assertEqual(self.hub.jobs()[0]['state'], 'DONE')
 
@@ -54,7 +54,7 @@ class WorkflowTests(unittest.TestCase):
 
     def test_path_escape_rejected(self):
         path = self.bundle / 'request.json'
-        request = json.loads(path.read_text())
+        request = json.loads(path.read_text(encoding='utf-8'))
         request['audio'] = '../../outside.mp3'
         path.write_text(json.dumps(request))
         with self.assertRaisesRegex(ValueError, 'filename'):
@@ -136,7 +136,7 @@ class WorkflowTests(unittest.TestCase):
         self.hub.ingest(self.bundle)
         (self.bundle / 'dictionary.txt').write_text('different dictionary')
         path = self.bundle / 'request.json'
-        request = json.loads(path.read_text())
+        request = json.loads(path.read_text(encoding='utf-8'))
         request['dictionary_sha256'] = digest(self.bundle / 'dictionary.txt')
         path.write_text(json.dumps(request))
         with self.assertRaisesRegex(ValueError, 'reused'):
