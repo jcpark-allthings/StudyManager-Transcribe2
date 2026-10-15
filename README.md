@@ -1,12 +1,12 @@
 # StudyManager-Transcribe2
 
-독립 구현한 **0.1.0 개발 미리보기**입니다. 미니·다른 Windows PC의 준비 앱과 맥미니의 AI 허브를 분리합니다. 원본 StudyManager-Transcribe와 코드·Git remote·데이터베이스를 연동하지 않습니다.
+독립 구현한 **0.2.0 개발 미리보기**입니다. 미니·다른 Windows PC의 준비 앱과 맥미니의 AI 허브를 분리합니다. 원본 StudyManager-Transcribe와 코드·Git remote·데이터베이스를 연동하지 않습니다.
 
 ## 지금 실행 가능한 기능
 
 - 준비 앱: MP3/WAV/M4A 등록, TXT/MD/검색 가능한 PDF에서 규칙 기반 용어 후보 추출, 사전 편집, 작업별 사전 스냅샷, PC별 전달 폴더, 완료 결과 읽기.
 - 허브 앱: 입력 해시 검증·맥 로컬 인수, SQLite 큐, MLX Whisper 어댑터, 원본 TXT/JSON, 대기 취소·실패 재시도·중단 복구, 인수 상태·결과 내보내기.
-- 두 개의 Tkinter 창과 CLI. 자동 감시 대신 명시적인 인수·전사 버튼을 사용하는 초기 버전입니다.
+- 두 개의 Tkinter 창과 CLI. 맥 허브 창의 자동 처리 선택 또는 `serve` 명령으로 인수·순차 전사·결과 발행을 반복합니다.
 
 **실제 음성 인식·Windows/macOS GUI 실행은 아직 해당 장비에서 검증하지 않았습니다.** 자동 테스트는 대체 전사 함수로 파일 전달·큐·복구를 검증합니다. 완성된 설치 파일은 아직 제공하지 않습니다.
 
@@ -32,11 +32,10 @@ py -3 -m venv .venv
 
 ## 맥미니 AI 허브
 
-Apple Silicon Mac, Python 3.11 이상(Tkinter 포함), FFmpeg가 필요합니다. Python/FFmpeg 설치 여부를 먼저 확인합니다. 이 문서는 시스템 패키지를 자동 변경하지 않습니다.
+Apple Silicon Mac과 Python 3.11 이상(Tkinter 포함)이 필요합니다. `mac` 의존성에 MLX Whisper와 앱 전용 FFmpeg 바이너리를 포함합니다. 아래는 개발용 소스 실행 방법이며, 개발 환경이 없는 Mac을 위한 통합 설치 스크립트는 아직 만들지 않았습니다.
 
 ```bash
 python3 -m tkinter
-ffmpeg -version
 python3 -m venv .venv
 .venv/bin/python -m pip install -e '.[mac,pdf]'
 .venv/bin/python -m smt2 gui hub
@@ -46,11 +45,13 @@ python3 -m venv .venv
 
 1. 준비 앱과 같은 내용이 보이는 교환 폴더를 선택합니다.
 2. `준비된 작업 인수`를 누릅니다. 허브 로컬 복사·검증·DB 커밋 후 상태를 내보냅니다.
-3. `다음 1건 전사`를 누릅니다. 최초 모델 다운로드는 네트워크가 필요할 수 있습니다.
+3. `다음 1건 전사`를 누르거나 `자동 인수·순차 전사·결과 발행`을 선택합니다. 자동 처리는 창이 열린 동안 5초 간격으로 확인합니다. 최초 모델 다운로드는 네트워크가 필요할 수 있습니다.
 4. 결과는 허브 로컬과 교환 폴더 `results/<device_id>/<request_id>/<attempt>/`에 저장됩니다.
 5. `complete.json`이 있고 해시가 일치하는 결과만 완성된 결과로 취급합니다.
 
 기본 모델 ID는 `mlx-community/whisper-turbo`이며 인수 시 작업에 고정됩니다. 실제 속도·메모리·인식 품질은 아직 측정하지 않았습니다. 사전 힌트는 2000자 이내이며 정확한 표기 반영을 보장하지 않습니다. 클라우드 API 호출은 구현하지 않았습니다.
+
+화면 없이 허브를 실행할 때는 `python3 -m smt2 serve --exchange /교환/폴더`를 사용합니다. 이 명령은 로컬 작업 폴더 `~/.smt2/hub`를 사용하고 종료할 때까지 반복합니다. 교환 폴더가 끊겨도 이미 인수한 작업은 로컬에서 처리하며, 연결이 돌아오면 결과 발행을 다시 시도합니다. Mac 로그인 후 자동 실행을 등록하는 스크립트는 후속 작업입니다.
 
 ## NAS 없이 시험
 

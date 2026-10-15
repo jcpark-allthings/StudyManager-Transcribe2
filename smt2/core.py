@@ -9,6 +9,7 @@ from pathlib import Path
 import re
 import shutil
 import sqlite3
+import tempfile
 import time
 import uuid
 from contextlib import contextmanager
@@ -290,8 +291,14 @@ class Hub:
             self._recover()
             for job in self.jobs():
                 destination = exchange / 'receipts' / job['device'] / job['id']
-                write_json(destination / 'status.json', {'schema': 1, 'request_id': job['id'],
-                    'accepted': True, 'state': job['state'], 'attempt': job['attempt']})
+                status = {'schema': 1, 'request_id': job['id'],
+                    'accepted': True, 'state': job['state'], 'attempt': job['attempt']}
+                try:
+                    unchanged = read_json(destination / 'status.json') == status
+                except (OSError, ValueError, TypeError):
+                    unchanged = False
+                if not unchanged:
+                    write_json(destination / 'status.json', status)
                 if job['state'] == 'DONE':
                     source = self.home / 'results' / job['id'] / str(job['attempt'])
                     marker = read_json(source / 'complete.json')
@@ -299,12 +306,19 @@ class Hub:
                         if digest(source / name) != marker[key]:
                             raise ValueError('Stored result checksum mismatch')
                     destination = exchange / 'results' / job['device'] / job['id'] / str(job['attempt'])
-                    destination.mkdir(parents=True, exist_ok=True)
-                    for name in ('raw.json', 'raw.txt'):
-                        temp = destination / (name + '.tmp')
-                        shutil.copyfile(source / name, temp)
-                        os.replace(temp, destination / name)
-                    write_json(destination / 'complete.json', marker)
+                    try:
+                        published = (read_json(destination / 'complete.json') == marker
+                            and digest(destination / 'raw.json') == marker['raw_json_sha256']
+                            and digest(destination / 'raw.txt') == marker['raw_txt_sha256'])
+                    except (OSError, ValueError, KeyError, TypeError):
+                        published = False
+                    if not published:
+                        destination.mkdir(parents=True, exist_ok=True)
+                        for name in ('raw.json', 'raw.txt'):
+                            temp = destination / (name + '.tmp')
+                            shutil.copyfile(source / name, temp)
+                            os.replace(temp, destination / name)
+                        write_json(destination / 'complete.json', marker)
 
 
 def validate_result(result):
@@ -324,13 +338,21 @@ def mlx_transcribe(audio: Path, dictionary: str, model: str):
     import platform
     if platform.system() != 'Darwin' or platform.machine() != 'arm64':
         raise RuntimeError('MLX transcription requires an Apple Silicon Mac')
-    if not shutil.which('ffmpeg'):
-        raise RuntimeError('FFmpeg is required on the Mac')
-    import mlx_whisper
     # Long dictionaries are rejected rather than silently truncated.
     if len(dictionary) > 2000:
         raise ValueError('Reduce dictionary hints to 2000 characters for this preview')
-    raw = mlx_whisper.transcribe(str(audio), path_or_hf_repo=model, language='ko',
-                               initial_prompt=dictionary or None, verbose=None)
+    import imageio_ffmpeg
+    ffmpeg = imageio_ffmpeg.get_ffmpeg_exe()
+    # MLX Whisper invokes the command name "ffmpeg"; the wheel uses a versioned filename.
+    with tempfile.TemporaryDirectory(prefix='smt2-ffmpeg-') as temporary:
+        (Path(temporary) / 'ffmpeg').symlink_to(ffmpeg)
+        original_path = os.environ.get('PATH', '')
+        os.environ['PATH'] = temporary + os.pathsep + original_path
+        try:
+            import mlx_whisper
+            raw = mlx_whisper.transcribe(str(audio), path_or_hf_repo=model, language='ko',
+                                         initial_prompt=dictionary or None, verbose=None)
+        finally:
+            os.environ['PATH'] = original_path
     return {'text': raw['text'], 'language': raw.get('language', 'ko'),
             'segments': [{'start': s['start'], 'end': s['end'], 'text': s['text']} for s in raw['segments']]}

@@ -24,6 +24,10 @@ def main():
     run.add_argument('--limit', type=int, default=1, choices=range(1, 11))
     export = sub.add_parser('export')
     export.add_argument('exchange', type=Path)
+    service = sub.add_parser('serve', help='Automatically intake, transcribe, and publish Mac jobs')
+    service.add_argument('--exchange', type=Path, required=True)
+    service.add_argument('--model', default='mlx-community/whisper-turbo')
+    service.add_argument('--interval', type=float, default=5)
     for action in ('retry', 'cancel'):
         sub.add_parser(action).add_argument('job')
     args = parser.parse_args()
@@ -31,6 +35,12 @@ def main():
         if args.command == 'gui':
             from .gui import launch
             launch(args.role, args.home)
+        elif args.command == 'serve':
+            from .service import serve
+            try:
+                serve(args.home / 'hub', args.exchange, args.model, args.interval)
+            except KeyboardInterrupt:
+                pass
         elif args.command == 'prepare':
             print(prepare(args.audio, args.outbox, device_id(args.home), args.title,
                           args.dictionary.read_text(encoding='utf-8') if args.dictionary else ''))

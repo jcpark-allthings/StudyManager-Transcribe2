@@ -4,12 +4,14 @@ import queue
 import threading
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
+from . import __version__
 from .core import Hub, prepare, device_id, dictionary_candidates
+from .service import cycle
 
 
 def launch(role, home):
     root = tk.Tk()
-    root.title('SMT2 준비·관리' if role == 'prep' else 'SMT2 AI 허브')
+    root.title(('SMT2 준비·관리' if role == 'prep' else 'SMT2 AI 허브') + ' ' + __version__)
     root.geometry('920x680')
     panel = ttk.Frame(root, padding=16)
     panel.pack(fill='both', expand=True)
@@ -150,7 +152,35 @@ def launch(role, home):
         ttk.Button(row, text='선택 작업 재시도', command=lambda: change('retry')).pack(side='left')
         ttk.Button(row, text='대기 작업 취소', command=lambda: change('cancel')).pack(side='left')
         ttk.Button(row, text='새로고침', command=refresh).pack(side='right')
-        ttk.Label(panel, text=f'맥 로컬 작업·결과: {hub.home}\n진행 중 취소·자동 감시·전역 사전 병합은 다음 개발 단계입니다.').pack(anchor='w')
+        automatic = tk.BooleanVar(value=False)
+        auto_after = None
+        def auto_step():
+            nonlocal auto_after
+            auto_after = None
+            if not automatic.get():
+                return
+            if not busy:
+                selected_model = model.get().strip()
+                if not selected_model:
+                    automatic.set(False)
+                    status.set('전사 모델을 지정하세요.')
+                    return
+                def completed(result):
+                    refresh()
+                    if result[1]:
+                        status.set(result[1][0])
+                work(lambda: cycle(hub, Path(exchange.get()), selected_model), completed)
+            auto_after = root.after(5000, auto_step)
+        def toggle_auto():
+            nonlocal auto_after
+            if automatic.get() and auto_after is None:
+                auto_after = root.after(0, auto_step)
+            elif not automatic.get() and auto_after is not None:
+                root.after_cancel(auto_after)
+                auto_after = None
+        ttk.Checkbutton(panel, text='자동 인수·순차 전사·결과 발행', variable=automatic,
+                        command=toggle_auto).pack(anchor='w')
+        ttk.Label(panel, text=f'맥 로컬 작업·결과: {hub.home}\n자동 처리는 이 창이 열려 있는 동안 실행합니다. 진행 중 취소·전역 사전 병합은 다음 개발 단계입니다.').pack(anchor='w')
         refresh()
     def view_result():
         filename = filedialog.askopenfilename(title='완료 결과의 raw.txt 선택', filetypes=[('전사 결과', 'raw.txt')])
